@@ -33,7 +33,7 @@ Start _wireshark_ capturing all packets relevant in this scenario.
 wireshark -i loopback -f "tcp port 4711 or tcp port 4712" -k
 ```
 
-### Start with a simple tcp chat
+### Start with a simple TCP chat
 
 Run a simple tcp chat by running netcat in two different terminals.
 
@@ -76,7 +76,7 @@ nc -v localhost 4711 \
 ```
 [bash-redirection-cheat-sheet] (https://catonmat.net/ftp/bash-redirections-cheat-sheet.pdf)
 
-### Let's talk http
+### Let's talk HTTP
 
 Open a third terminal for running some other tools. Let's see a client
 send a request.

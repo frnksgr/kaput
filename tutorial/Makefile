@@ -18,5 +18,3 @@ push: ## push image to global registry
 run: ## run container 
 	docker run -it --rm --volume `pwd`/notebooks:/tutorial $(image)
 
-tt:
-	ls `pwd`/..
