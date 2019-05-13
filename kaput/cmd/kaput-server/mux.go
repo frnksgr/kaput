@@ -2,25 +2,27 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
+
+	"github.com/gorilla/mux"
 )
 
 var mainServeMux = initServeMux()
 
 func initServeMux() *http.ServeMux {
-	http.HandleFunc("/", handleRoot)
-	http.HandleFunc("/help", handleHelp)
+	r := mux.NewRouter()
+	r.HandleFunc("/", handleRoot)
+	r.HandleFunc("/help", handleHelp).Methods("GET")
 
-	http.HandleFunc("/crash", handleCrash)
+	r.HandleFunc("/crash", handleCrash).Methods("GET")
+	r.HandleFunc("/fail", handleFail).Methods("GET")
 
+	http.Handle("/", r)
 	return http.DefaultServeMux
 }
 
 func handleRoot(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
 	url := "/help"
 	http.Redirect(w, r, url, http.StatusFound)
 }
@@ -31,17 +33,15 @@ func handleNotImplemented(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleHelp(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
 	handleNotImplemented(w, r)
 }
 
+func handleFail(w http.ResponseWriter, r *http.Request) {
+	// runs into panic recovery of server
+	// will not shutdown process
+	log.Panic("Going Down")
+}
+
 func handleCrash(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-	handleNotImplemented(w, r)
+	log.Fatal("Going Down")
 }
