@@ -2,22 +2,24 @@
 
 ## Install required tools
 
-- wireshark
 - netcat
 - curl
-- some terminals or a terminal multiplexer like _tmux_
+- python3 (optional)
+- wireshark (optional)
+- tmux (optional)
 
 ```bash
     apt-get update
-    apt-get install netcat-openbsd curl wireshark tmux
+    apt-get install netcat-openbsd curl wireshark tmux python3
 ```
 
 ## Warm Up
 
 ### Playing around with netcat
 
-We will basically use the command line running tools like _curl_ and
-_netcat_. Comandline and Web are pretty cool...
+Run a simple http client and server just with netcat on the comnmandline.
+
+Comandline is cool.
 
 ```bash
 curl wttr.in/walldorf
@@ -25,8 +27,7 @@ curl wttr.in/walldorf
 
 ### See what's going on
 
-Start _wireshark_ capturing packets on _loopback_ device filtering for
-_tcp port 4711_
+Start _wireshark_ capturing all packets relevant in this scenario.
 
 ```bash
 wireshark -i loopback -f "tcp port 4711 or tcp port 4712" -k
@@ -39,24 +40,20 @@ Run a simple tcp chat by running netcat in two different terminals.
 ```bash
 # Start server in terminal-1
 nc -l localhost 4711 # open server listening on localhost:4711
+```
+
+Actually this is not a _server_ rahter just a listening socket.
+
+```bash
 # Start client in terminal-2
 nc localhost 4711
 ```
 
-Now we can chat between terminal-1 and terminal-2.
+Keep server listening by adding `-k` to netcat server. 
 
-Shut down client with _CTRL+C_ in terminal-2. Inspect the tcp session
-in wireshark.
+Get some info on _stderr_ by adding `-v` to netcat.
 
-Repeat it. But now, shutdown server with _CTRL+C_ in terminal-1. See
-the differences in _wireshark_.
-
-Now, keep server listening by adding `-k` to netcat server.
-
-Optionaly get some out of band info on _stderr_ by adding `-v` to
-netcat.
-
-Optionaly coloring _stderr_ (fd 2) to distinguish from stdout (fd 1).
+Nice coloring of _stderr_ (fd 2) to distinguish from output on stdout (fd 1).
 
 ```bash
 # Start server in terminal-1
@@ -66,7 +63,9 @@ nc -lkv localhost 4711 \
                 do echo -e "\e[01;31m$line\e[0m" >&2; \
             done \
         )
+```
 
+```bash
 # Start client in terminal-2
 nc -v localhost 4711 \
     2> >( \
@@ -75,9 +74,6 @@ nc -v localhost 4711 \
             done \
         )
 ```
-
-NOTE: `2> >(...) >&2` redirect _stderr_ to anonymous fifo and back to
-_stderr_.
 [bash-redirection-cheat-sheet] (https://catonmat.net/ftp/bash-redirections-cheat-sheet.pdf)
 
 ### Let's talk http
@@ -86,6 +82,7 @@ Open a third terminal for running some other tools. Let's see a client
 send a request.
 
 ```bash
+# send http request to our netcat server using curl
 curl localhost:4711 /path
 ```
 
@@ -103,16 +100,17 @@ Accept: */*
 
  Looks like
 
-- first line is HTTP method /path protcol/version 
-- then come headers, line by line (optional)
-- terminated by an mepty line (somehow)
+- first line is HTTP method, path, protcol/version separated by a space
+- then come headers, line by line
+- terminated by an empty line
 - no body yet
 
-Now, lets add an extra request header using `-H` with curl command,
+Add an extra request header using `-H` with curl command,
 and send some data using the `-d` switch. NOTE: we need to encapsulate
 data in `$'...'` to prevent bash interpreting special chars.
 
 ```bash
+# add headers and body with curl
 curl -v -H "My-header: value" \
     -d $'the body\n' \
     http://localhost:4711/path
@@ -132,29 +130,22 @@ the body
 ...
 ```
 
-NOTE: the client (_curl_) serving the http protocol. Method has been
-changed to _POST_ and some additional header fields have been added.
+NOTE: _curl_ handling HTTP protocol under the hood.
+Method changed from _GET_ to _POST_, some additional headers.
 
-Now, let's reengineer a valid http response sending a request to a
-webserver. Therefore we run a small webserver on _localhost:4712_.
+Show a valid HTTP response with curl calling a real server.
+Therefore run a small webserver on _localhost:4712_ with python3.
 
 ```bash
+# Run a simple webserver browsing current directory
 python3 -m http.server  -b localhost 4712
 ```
-
-This [server](http://localhost:4712]) let you browse your current
-directory.
-
-Let's call it with netcat and ignore the response body sending it to
-_/dev/null_ for now. We are only interested in the protocol header
-which we get with `-v` switch in curl.
+Check with browser on http://localhost:4712 
 
 ```bash
+# send request to server to see HTTP response
 curl -v http://localhost:4712/ >/dev/null
 ```
-
-We see the protocol header of the response in the terminal running
-curl.
 
 ```bash
 ...
@@ -167,57 +158,50 @@ curl.
 ...
 ```
 
-Ok, looks like we first have
+Looks like
 
-- a response line showing protocol/version and response code
-- then come header lines
-- terminated by an empty line (somehow)
+- response line showing protocol/version and response code separated by spaces
+- then come headers line by line
+- terminated by an empty line
 - followed by body
 
-Let's try that with our netcat server/client.
-
-We open a connection with _netcat_ to our server running on _port
-4712_ and send a request and send a (hopefully) valid request. We do
-that by pypint a _here-document_ to stdin of our _netcat_ client
-command.
+Let's try that with netcat. I.e. create a valid HTTP request and HTTP response
 
 ```bash
+# create a calid HTTP request with netcat client
 cat <<EOF | nc localhost 4712
 GET / HTTP/1.0
 
 EOF
 ```
 
-Now, let's do something wrong.
-
 ```bash
+# See what happens if we create an invalid request
 cat <<EOF | nc localhost 4712
 GET HTTP/1.0 /
 
 EOF
 ```
 
-See how the server reacts on client misbehavior.
-
-In our _netcat_ server we try to respond to a valid request from curl.
+Creating a valid HTTP response in netcat server terminal.
 
 ```bash
+# Send a valid request with curl
 curl -v http://localhost:4711/foo
 ```
 
-In our server terminal we create a response interactively
+Create a response interactively.
 
 ```bash
 ...
 HTTP/1.0 200 OK
 
 
-
 Damn it
 ```
 
-Seems the client doesn't find the end of our response, hm. We could
-help with some http protocol header.
+Seems the client doesn't find the end of body, hm.
+Help with some HTTP protocol header.
 
 ```bash
 ...
@@ -228,11 +212,5 @@ Content-Length: 0
 
 Looks much better.
 
-Finally, do a HTTP/1.0 request/response with your netcat client and
-server.
-
-Time to stop guessing about HTTP protocol. Where is it defined?
-Searching for HTTP e.g. in wikipedia we find
+Stop guessing about HTTP protocol. Study its definition and always refer to it on questions?
 [rfc7230](https://tools.ietf.org/html/rfc7230)
-That's the only truth (as long as you are not fooled by some client,
-server, intermediary or hacker in between)
