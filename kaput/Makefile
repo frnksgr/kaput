@@ -1,4 +1,10 @@
 
+STATIC ?=
+ifdef STATIC
+	GOENV := GOOS=linux GORACH=amd64 CGO_ENABLED=0
+else
+	GOENV := GOOS=linux GORACH=amd64
+endif
 
 .DEFAULT_GOAL := help
 
@@ -8,11 +14,10 @@ help:
 
 .PHONY: build
 build: ## build local to create bin/... executable(s)
-	go build -v ./pkg/...
-	go build -o ./bin/kaput-server ./cmd/kaput-server/...
-
+	$(GOENV) go build -v ./pkg/...
+	$(GOENV) go build -o ./bin/kaput-server ./cmd/kaput-server/...
 
 .PHONY: clean
 clean: ## clean up
 	go clean -i ./...
-	rm -f bin/kaput-server
+	rm -f bin/kaput-*

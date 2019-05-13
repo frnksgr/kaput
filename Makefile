@@ -8,7 +8,7 @@ help:
 
 .PHONY: docker-build
 docker-build: ## build docker image
-	docker build -t $(IMAGE) --build-arg BASEIMAGE=scractch .
+	docker build -t $(IMAGE) .
 
 .PHONY: docker-push
 docker-push: docker-build ## push docker-image
