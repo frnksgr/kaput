@@ -1,5 +1,6 @@
 
-IMAGE = gcr.io/sap-cp-gke/kaput
+IMAGE 		= gcr.io/sap-cp-gke/kaput
+CF_IMAGE 	= frnksgr/kaput
 
 .DEFAULT_GOAL := help
 .PHONY: help
@@ -13,4 +14,12 @@ docker-build: ## build docker image
 .PHONY: docker-push
 docker-push: docker-build ## push docker-image
 	docker push $(IMAGE)
+
+.PHONY: docker-cf-build
+docker-cf-build: ## build docker image for CF
+	docker build -t $(CF_IMAGE) --build-arg BASEIMAGE=alpine:3.9 .
+
+.PHONY: docker-cf-push
+docker-cf-push: docker-cf-build ## push CF docker-image
+	docker push $(CF_IMAGE)
 

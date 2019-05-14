@@ -7,7 +7,9 @@ import (
 	"os"
 )
 
-const defaultPort = 8080
+const defaultProtocol = "http"
+const defaultDomain = "localhost"
+const defaultPort = "8080"
 
 func getEnv(name string, fallback string) string {
 	value, ok := os.LookupEnv(name)
@@ -15,6 +17,16 @@ func getEnv(name string, fallback string) string {
 		value = fallback
 	}
 	return value
+}
+
+var privateRoute = struct {
+	protocol string
+	domain   string
+	port     string
+}{
+	getEnv("PRIVATE_PROTOCOL", defaultProtocol),
+	getEnv("PRIVATE_DOMAIN", defaultDomain),
+	getEnv("PRIVATE_PORT", defaultPort),
 }
 
 // middleware doing simple request logging
