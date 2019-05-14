@@ -12,7 +12,7 @@ RUN STATIC=1 make build
 # docker build -t <iamge name> --build-arg BASEIMAGE=alpine:3.9 .
 
 FROM $BASEIMAGE
-COPY --from=builder /kaput/bin/kaput-server /
+COPY --from=builder /kaput/bin/kaput /
 ENV PORT=8080
 EXPOSE 8080
-CMD [ "/kaput-server" ]
+CMD [ "/kaput" ]
