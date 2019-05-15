@@ -1,2 +1,2 @@
-kaput-server
-kaput-client
+*
+!.gitignore

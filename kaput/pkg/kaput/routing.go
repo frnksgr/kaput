@@ -6,7 +6,20 @@ import (
 	"github.com/gorilla/mux"
 )
 
+var (
+	helpRoot = &help{
+		"Breaking things",
+		[]command{
+			{"/", "this page"},
+			{"/crash", "crash something"},
+			{"/response", "return arbitrary response codes"},
+			{"/recursive", "recursively call service"},
+		},
+	}
+)
+
 func initRouting() {
+
 	r := mux.NewRouter()
 	r.HandleFunc("/", helpHandler("/")).Methods("GET")
 
@@ -21,4 +34,6 @@ func initRouting() {
 	r.HandleFunc("/recursive/{count:\\d+}", handleRecursive).Methods("GET").Queries("index", "{\\d+}")
 
 	http.Handle("/", r)
+
+	addHelp("/", helpRoot)
 }
