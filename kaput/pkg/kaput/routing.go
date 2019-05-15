@@ -6,17 +6,13 @@ import (
 	"github.com/gorilla/mux"
 )
 
-var (
-	helpRoot = &help{
-		"Breaking things",
-		[]command{
-			{"/", "this page"},
-			{"/crash", "crash something"},
-			{"/response", "return arbitrary response codes"},
-			{"/recursive", "recursively call service"},
-		},
-	}
-)
+const helpRoot = `
+/[command] breaking things
+Where command is:
+    crash           crash something
+    response        return arbitrary HTTP response codes
+    recursive       recursively call service
+`
 
 func initRouting() {
 
