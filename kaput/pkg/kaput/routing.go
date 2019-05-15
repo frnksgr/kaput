@@ -6,13 +6,15 @@ import (
 	"github.com/gorilla/mux"
 )
 
-const helpRoot = `
+const (
+	helpRoot = `
 /[command] breaking things
 Where command is:
     crash           crash something
     response        return arbitrary HTTP response codes
     recursive       recursively call service
 `
+)
 
 func initRouting() {
 

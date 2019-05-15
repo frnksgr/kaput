@@ -23,6 +23,19 @@ const (
 	defaultProtocol = "http"
 	defaultDomain   = "localhost"
 	defaultPort     = "8080"
+
+	helpRecursive = `
+/recursive/[count] create binary tree of requests with optional payload
+Where command is:
+	count           number of requests created
+A payload can be provided as a shell script which is executed
+(synchrounously) for each request.
+
+For example:
+	curl http://<kaput-domain>/recursive/123 -d 'sleep 1'
+	This will create a binary tree of requests of depth 7,
+	so the original request will return slightly after 7 sec.
+`
 )
 
 type (
@@ -43,6 +56,8 @@ func initRecursive() {
 		GetEnv("PRIVATE_DOMAIN", defaultDomain),
 		GetEnv("PRIVATE_PORT", defaultPort),
 	}
+
+	addHelp("/recursive", helpRecursive)
 }
 
 func requestRecursive(url string, payload string) chan error {

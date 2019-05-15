@@ -9,6 +9,25 @@ import (
 	"github.com/gorilla/mux"
 )
 
+const (
+	helpCrash = `
+/crash/[command] kill current connectio or whole process
+Where command is:
+    connection      kill current connection (with proper TCP shutdown on uncomplete HTTP response)
+    server          kill current process (with SIGTERM)
+`
+	helpResponse = `
+/response/[code] return any response code
+Where command is:
+    code            will be set as HTTP response status code
+`
+)
+
+func initElse() {
+	addHelp("/crash", helpCrash)
+	addHelp("/response", helpResponse)
+}
+
 // GetEnv return environment variable name if existing
 // else return fallback.
 func GetEnv(name string, fallback string) string {

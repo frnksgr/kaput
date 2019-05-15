@@ -1,5 +1,5 @@
 
-image = frnksgr/jupyter-tutorial
+image = frnksgr/kaput-tutorial
 
 .DEFAULT_GOAL := help
 .PHONY: help
@@ -11,10 +11,10 @@ build: ## build image
 	docker build -t $(image) .
 
 .PHONY: push
-push: ## push image to global registry
-	docker push $(image)
+push: build ## push image
+	docker build -t $(image) .
 
 .PHONY: run
-run: ## run container 
-	docker run -it --rm --volume `pwd`/notebooks:/tutorial $(image)
+run: build ## run container 
+	docker run -it --rm $(image) /bin/bash
 

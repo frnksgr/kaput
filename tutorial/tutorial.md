@@ -6,11 +6,12 @@
 - curl
 - python3 (optional)
 - wireshark (optional)
+- iproute2 (optional)
 - tmux (optional)
 
 ```bash
     apt-get update
-    apt-get install netcat-openbsd curl wireshark tmux python3
+    apt-get install netcat-openbsd curl python3 wireshark iproute2 tmux
 ```
 
 ## Warm Up
