@@ -16,5 +16,4 @@ push: build ## push image
 
 .PHONY: run
 run: build ## run container 
-	docker run -it --rm $(image) /bin/bash
-
+	docker run -it --rm --privileged --env DISPLAY=$$DISPLAY $(image) /bin/bash
