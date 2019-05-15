@@ -26,8 +26,8 @@ func initRouting() {
 	r.HandleFunc("/response/{code:[12345][0-9]{2}}", handleResponse).Methods("GET")
 
 	r.HandleFunc("/recursive", helpHandler("/recursive")).Methods("GET")
-	r.HandleFunc("/recursive/{count:\\d+}", handleRecursive).Methods("GET")
-	r.HandleFunc("/recursive/{count:\\d+}", handleRecursive).Methods("GET").Queries("index", "{\\d+}")
+	r.HandleFunc("/recursive/{count:\\d+}", handleRecursive).Methods("GET", "POST")
+	r.HandleFunc("/recursive/{count:\\d+}", handleRecursive).Methods("GET", "POST").Queries("index", "{\\d+}")
 
 	http.Handle("/", r)
 

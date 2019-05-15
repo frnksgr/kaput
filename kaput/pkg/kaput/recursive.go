@@ -8,24 +8,34 @@ package kaput
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
+	"os/exec"
 	"strconv"
+	"strings"
 
 	"github.com/gorilla/mux"
 )
 
-const defaultProtocol = "http"
-const defaultDomain = "localhost"
-const defaultPort = "8080"
+const (
+	defaultProtocol = "http"
+	defaultDomain   = "localhost"
+	defaultPort     = "8080"
+)
 
-type privateRouteT = struct {
-	protocol string
-	domain   string
-	port     string
-}
+type (
+	privateRouteT = struct {
+		protocol string
+		domain   string
+		port     string
+	}
+)
 
-var privateRoute privateRouteT
+var (
+	privateRoute privateRouteT
+)
 
 func initRecursive() {
 	privateRoute = privateRouteT{
@@ -35,11 +45,18 @@ func initRecursive() {
 	}
 }
 
-// TODO: add timeout
-func requestRecursive(url string) chan error {
+func requestRecursive(url string, payload string) chan error {
 	c := make(chan error)
 	go func() {
-		r, err := http.Get(url)
+		var r *http.Response
+		var err error
+
+		if len(payload) == 0 {
+			r, err = http.Get(url)
+		} else {
+			// NOTE: consider using application/x-sh
+			r, err = http.Post(url, "text/plain", strings.NewReader(payload))
+		}
 		if err != nil {
 			c <- err
 			return
@@ -61,6 +78,17 @@ func createRecursiveURL(count, index int) string {
 		privateRoute.port, count, index)
 }
 
+func getPayload(r *http.Request) (string, error) {
+	if r.Method == http.MethodPost {
+		body, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			return "", err
+		}
+		return string(body), nil
+	}
+	return "", nil
+}
+
 func handleRecursive(w http.ResponseWriter, r *http.Request) {
 	value := mux.Vars(r)["count"]
 	count, err := strconv.Atoi(value)
@@ -75,11 +103,16 @@ func handleRecursive(w http.ResponseWriter, r *http.Request) {
 		index = 1
 	}
 
+	payload, err := getPayload(r)
+	if err != nil {
+		log.Println("Error reading payload: ", err)
+	}
+
 	statusCode := http.StatusOK
 	switch {
 	case count >= 2*index+1: // inner node with two children
-		left := requestRecursive(createRecursiveURL(count, 2*index))
-		right := requestRecursive(createRecursiveURL(count, 2*index+1))
+		left := requestRecursive(createRecursiveURL(count, 2*index), payload)
+		right := requestRecursive(createRecursiveURL(count, 2*index+1), payload)
 		for i := 0; i < 2; i++ {
 			select {
 			case err := <-left:
@@ -96,12 +129,25 @@ func handleRecursive(w http.ResponseWriter, r *http.Request) {
 		}
 
 	case count == 2*index: // inner node with one child
-		left := requestRecursive(createRecursiveURL(count, 2*index))
+		left := requestRecursive(createRecursiveURL(count, 2*index), payload)
 		err := <-left
 		if err != nil {
 			log.Println(err)
 			statusCode = http.StatusInternalServerError
 		}
 	}
+
 	w.WriteHeader(statusCode)
+
+	// execute payload synchronously
+	if len(payload) != 0 {
+		fmt.Printf("Index: %d Running payload...\n", index)
+		cmd := exec.Command("/bin/sh", "-c", payload)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			log.Printf("Index: %d Excuting payload failed\n", index)
+			log.Println(err)
+		}
+	}
 }

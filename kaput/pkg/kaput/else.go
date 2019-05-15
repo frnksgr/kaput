@@ -35,7 +35,7 @@ func handleResponse(w http.ResponseWriter, r *http.Request) {
 	value := mux.Vars(r)["code"]
 	code, err := strconv.Atoi(value)
 	if err != nil { // should not happen
-		log.Fatal(err)
+		log.Panic(err)
 	}
 	w.WriteHeader(code)
 }
