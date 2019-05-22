@@ -1,8 +1,11 @@
 package kaput
 
 import (
+	"fmt"
 	"net/http"
 
+	"github.com/frnksgr/kaput/kaput/pkg/help"
+	"github.com/frnksgr/kaput/kaput/pkg/load"
 	"github.com/gorilla/mux"
 )
 
@@ -12,26 +15,29 @@ const (
 Where command is:
     crash           crash something
     response        return arbitrary HTTP response codes
-    recursive       recursively call service
+	load            create recursive requests each executing a specified workload
+	
+Call command URL to get specific help on command.
 `
 )
 
-func initRouting() {
+func init() {
+	fmt.Println("Initializing router ...")
 
 	r := mux.NewRouter()
-	r.HandleFunc("/", helpHandler("/")).Methods("GET")
+	r.HandleFunc("/", help.Handler("/")).Methods("GET")
 
-	r.HandleFunc("/crash", helpHandler("/crash/")).Methods("GET")
+	r.HandleFunc("/crash", help.Handler("/crash")).Methods("GET")
 	r.HandleFunc("/crash/{it:(?:connection|server)}", handleCrash).Methods("GET")
 
-	r.HandleFunc("/response", helpHandler("/response/")).Methods("GET")
+	r.HandleFunc("/response", help.Handler("/response")).Methods("GET")
 	r.HandleFunc("/response/{code:[12345][0-9]{2}}", handleResponse).Methods("GET")
 
-	r.HandleFunc("/recursive", helpHandler("/recursive")).Methods("GET")
-	r.HandleFunc("/recursive/{count:\\d+}", handleRecursive).Methods("GET", "POST")
-	r.HandleFunc("/recursive/{count:\\d+}", handleRecursive).Methods("GET", "POST").Queries("index", "{\\d+}")
+	r.HandleFunc("/load", help.Handler("/load")).Methods("GET")
+	r.HandleFunc("/load/{count:\\d+}", load.Handler).Methods("POST")
+	r.HandleFunc("/load/{count:\\d+}", load.Handler).Methods("POST").Queries("index", "{\\}d+")
 
 	http.Handle("/", r)
 
-	addHelp("/", helpRoot)
+	help.Add("/", helpRoot)
 }

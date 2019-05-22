@@ -1,4 +1,4 @@
-package kaput
+package help
 
 import (
 	"fmt"
@@ -20,12 +20,17 @@ var (
 	helpMap = make(map[string]string)
 )
 
-func addHelp(path string, item string) {
-	helpMap[path] = item
+func init() {
+	fmt.Println("Initializing help system ...")
 }
 
-// TODO: provide help; use templating
-func helpHandler(path string) func(http.ResponseWriter, *http.Request) {
+// Add add help strinbg for specified path
+func Add(path string, help string) {
+	helpMap[path] = help
+}
+
+// Handler serving help URLs
+func Handler(path string) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		help := helpMap[path]
 		if len(help) == 0 {

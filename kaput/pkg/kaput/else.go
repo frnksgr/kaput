@@ -3,9 +3,9 @@ package kaput
 import (
 	"log"
 	"net/http"
-	"os"
 	"strconv"
 
+	"github.com/frnksgr/kaput/kaput/pkg/help"
 	"github.com/gorilla/mux"
 )
 
@@ -23,19 +23,9 @@ Where command is:
 `
 )
 
-func initElse() {
-	addHelp("/crash", helpCrash)
-	addHelp("/response", helpResponse)
-}
-
-// GetEnv return environment variable name if existing
-// else return fallback.
-func GetEnv(name string, fallback string) string {
-	value, ok := os.LookupEnv(name)
-	if !ok {
-		value = fallback
-	}
-	return value
+func init() {
+	help.Add("/crash", helpCrash)
+	help.Add("/response", helpResponse)
 }
 
 // Crash either tcp connection
