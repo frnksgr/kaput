@@ -15,7 +15,7 @@ const (
 Where command is:
     crash           crash something
     response        return arbitrary HTTP response codes
-	load            create recursive requests each executing a specified workload
+    load            create recursive requests each executing a specified workload
 	
 Call command URL to get specific help on command.
 `
@@ -34,8 +34,9 @@ func init() {
 	r.HandleFunc("/response/{code:[12345][0-9]{2}}", handleResponse).Methods("GET")
 
 	r.HandleFunc("/load", help.Handler("/load")).Methods("GET")
-	r.HandleFunc("/load/{count:\\d+}", load.Handler).Methods("POST")
-	r.HandleFunc("/load/{count:\\d+}", load.Handler).Methods("POST").Queries("index", "{\\}d+")
+	r.HandleFunc("/load/{count:\\d{0,4}}", load.PostHandler).Methods("POST").
+		HeadersRegexp("Content-Type", "application/x-www-form-urlencoded").
+		HeadersRegexp("Content-Type", "application/json")
 
 	http.Handle("/", r)
 

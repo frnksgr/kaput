@@ -2,12 +2,11 @@ package load
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
-	"io"
-	"log"
+	"io/ioutil"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/frnksgr/kaput/kaput/pkg/config"
 
@@ -29,124 +28,115 @@ func init() {
 	help.Add("/load", helpLoad)
 }
 
-func decodeLoad(r io.Reader) (*Load, error) {
-	var l Load
-	decoder := json.NewDecoder(r)
-	if err := decoder.Decode(&l); err != nil {
-		return nil, err
-	}
-	return &l, nil
-}
-
-func encodeLoad(l *Load, w io.Writer) error {
-	encoder := json.NewEncoder(w)
-	return encoder.Encode(l)
-}
-
-func createChild(url string, n *Node) error {
-	indexedURL := fmt.Sprintf("%s?index=%d", url, n.Index)
+// spawn a new Child defined by node
+func spawnChild(url string, node *Node) (int, error) {
 	var buffer bytes.Buffer
-	if err := encodeLoad(n.Load, &buffer); err != nil {
-		return err
+	if err := encodeNode(node, &buffer); err != nil {
+		return 0, err
 	}
-	resp, err := http.Post(indexedURL, "application/json", &buffer)
+	resp, err := http.Post(url, "application/json", &buffer)
 	if err != nil {
-		return err
+		return 0, err
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("Unexpected response, status code: %d", resp.StatusCode)
+		return 0, fmt.Errorf("Unexpected response, status code: %d", resp.StatusCode)
 	}
-	return nil
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return 0, err
+	}
+	count, err := strconv.Atoi(strings.TrimSpace(string(body)))
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
 }
 
-// Handler server load requests
-func Handler(w http.ResponseWriter, r *http.Request) {
+// get count from url /load/{count:\\d{0,4}}
+func count(r *http.Request) int {
 	value := mux.Vars(r)["count"]
 	count, err := strconv.Atoi(value)
 	if err != nil { // should not happen
-		log.Panic(err)
+		panic(err)
+	}
+	return count
+}
+
+// PostHandler handle post requests
+// accepting payloads application/json (inner nodes)
+// application/x-www-form-urlencoded (root node)
+func PostHandler(w http.ResponseWriter, r *http.Request) {
+	count := count(r)
+	var node *Node
+	var err error
+
+	// construct node
+	switch r.Header.Get("Content-Type") {
+	case "application/json": // inner node
+		node, err = decodeNode(r.Body)
+		if err != nil {
+			panic(err)
+		}
+	case "application/x-www-form-urlencoded": //root node
+		load, err := decodeLoad(r.Body)
+		if err != nil {
+			panic(err)
+		}
+		node = &Node{
+			Index: 1,
+			Load:  load,
+		}
 	}
 
-	// only root request should have no index
-	// and is defaulted to 1
-	value = r.URL.Query().Get("index")
-	index, err := strconv.Atoi(value)
-	if err != nil {
-		// defaults to 1
-		index = 1
-	}
-
-	load, err := decodeLoad(r.Body)
-	if err != nil {
-		log.Panic(err)
-	}
-	node := &Node{
-		Index: index,
-		Load:  load,
-	}
+	// get a node specific logger
+	logger := node.logger()
 
 	// execute workload
-	node.Run()
+	node.Run(logger)
 
-	statusCode := http.StatusOK
-	url := fmt.Sprintf("%s://%s:%s/load/%d",
-		config.Data.Calling.Protocol,
-		config.Data.Calling.Domain,
-		config.Data.Calling.Port,
-		count)
+	// spawn children
+	children := make([]*Node, 0, 2) // actual children to be spawned
+	statusCode := http.StatusOK     // default
+	childCount := 0                 // count successfully spawned children
 
-	switch {
-	case count >= 2*node.Index+1: // inner node with two children
-		lc, rc := make(chan error), make(chan error)
-		ln := &Node{
-			Index: 2 * node.Index,
-			Load:  node.Load,
+	// figure out children to be spawned
+	for i := 0; i < 2; i++ {
+		child := node.child(i)
+		if count > child.Index {
+			break
 		}
-		rn := &Node{
-			Index: 2*node.Index + 1,
-			Load:  node.Load,
-		}
-
-		go func() {
-			lc <- createChild(url, ln)
-		}()
-		go func() {
-			rc <- createChild(url, rn)
-		}()
-
-		for i := 0; i < 2; i++ {
-			select {
-			case err := <-lc:
-				if err != nil {
-					log.Println(err)
-					statusCode = http.StatusInternalServerError
-				}
-			case err := <-rc:
-				if err != nil {
-					log.Println(err)
-					statusCode = http.StatusInternalServerError
-				}
-			}
-		}
-
-	case count == 2*node.Index: // inner node with one child
-		lc := make(chan error)
-		ln := &Node{
-			Index: 2 * node.Index,
-			Load:  node.Load,
-		}
-
-		go func() {
-			lc <- createChild(url, ln)
-		}()
-		err := <-lc
-		if err != nil {
-			log.Println(err)
-			statusCode = http.StatusInternalServerError
-		}
-	default: // leaf
-		node.Println("is Leaf")
+		children = append(children, child)
 	}
 
+	if len(children) > 0 { // some children to spawn
+		url := fmt.Sprintf("%s://%s:%s/load/%d", config.Data.Calling.Protocol,
+			config.Data.Calling.Domain, config.Data.Calling.Port, count)
+
+		type childResult struct {
+			count int
+			err   error
+		}
+
+		channel := make(chan childResult, len(children))
+		for _, child := range children {
+			go func() {
+				count, err := spawnChild(url, child)
+				channel <- childResult{count, err}
+			}()
+		}
+		for i := 0; i < len(children); i++ {
+			result := <-channel
+			if result.err != nil {
+				logger.Println(result.err)
+				statusCode = http.StatusInternalServerError
+			}
+			childCount += result.count
+		}
+	}
+
+	// create response
 	w.WriteHeader(statusCode)
+	w.Header().Set("Content-Type", "application/json")
+	fmt.Fprintln(w, childCount)
 }
