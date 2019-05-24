@@ -3,6 +3,7 @@ package load
 import (
 	"encoding/json"
 	"io"
+	"net/http"
 )
 
 // Task describes a specific task.
@@ -28,12 +29,9 @@ func generate(task Task) TaskExec {
 
 // data is application/x-www-form-urlencoded
 // do some value checks
-func decodeLoad(r io.Reader) (*Load, error) {
+func decodeLoad(r *http.Request) (*Load, error) {
 	var l Load
-	decoder := json.NewDecoder(r)
-	if err := decoder.Decode(&l); err != nil {
-		return nil, err
-	}
+	r.ParseForm()
 	return &l, nil
 }
 

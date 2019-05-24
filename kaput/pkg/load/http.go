@@ -30,6 +30,7 @@ func init() {
 
 // spawn a new Child defined by node
 func spawnChild(url string, node *Node) (int, error) {
+	// create request
 	var buffer bytes.Buffer
 	if err := encodeNode(node, &buffer); err != nil {
 		return 0, err
@@ -38,6 +39,8 @@ func spawnChild(url string, node *Node) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+
+	// handle response
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		return 0, fmt.Errorf("Unexpected response, status code: %d", resp.StatusCode)
@@ -54,7 +57,7 @@ func spawnChild(url string, node *Node) (int, error) {
 }
 
 // get count from url /load/{count:\\d{0,4}}
-func count(r *http.Request) int {
+func nodeCount(r *http.Request) int {
 	value := mux.Vars(r)["count"]
 	count, err := strconv.Atoi(value)
 	if err != nil { // should not happen
@@ -67,7 +70,7 @@ func count(r *http.Request) int {
 // accepting payloads application/json (inner nodes)
 // application/x-www-form-urlencoded (root node)
 func PostHandler(w http.ResponseWriter, r *http.Request) {
-	count := count(r)
+	nodeCount := nodeCount(r)
 	var node *Node
 	var err error
 
@@ -79,7 +82,7 @@ func PostHandler(w http.ResponseWriter, r *http.Request) {
 			panic(err)
 		}
 	case "application/x-www-form-urlencoded": //root node
-		load, err := decodeLoad(r.Body)
+		load, err := decodeLoad(r)
 		if err != nil {
 			panic(err)
 		}
@@ -103,7 +106,7 @@ func PostHandler(w http.ResponseWriter, r *http.Request) {
 	// figure out children to be spawned
 	for i := 0; i < 2; i++ {
 		child := node.child(i)
-		if count > child.Index {
+		if child.Index > nodeCount {
 			break
 		}
 		children = append(children, child)
@@ -111,7 +114,7 @@ func PostHandler(w http.ResponseWriter, r *http.Request) {
 
 	if len(children) > 0 { // some children to spawn
 		url := fmt.Sprintf("%s://%s:%s/load/%d", config.Data.Calling.Protocol,
-			config.Data.Calling.Domain, config.Data.Calling.Port, count)
+			config.Data.Calling.Domain, config.Data.Calling.Port, nodeCount)
 
 		type childResult struct {
 			count int
@@ -120,10 +123,10 @@ func PostHandler(w http.ResponseWriter, r *http.Request) {
 
 		channel := make(chan childResult, len(children))
 		for _, child := range children {
-			go func() {
+			go func(child *Node) {
 				count, err := spawnChild(url, child)
 				channel <- childResult{count, err}
-			}()
+			}(child)
 		}
 		for i := 0; i < len(children); i++ {
 			result := <-channel
