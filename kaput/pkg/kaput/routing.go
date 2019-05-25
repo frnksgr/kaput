@@ -34,8 +34,7 @@ func init() {
 	r.HandleFunc("/response/{code:[12345][0-9]{2}}", handleResponse).Methods("GET")
 
 	r.HandleFunc("/load", help.Handler("/load")).Methods("GET")
-	r.HandleFunc("/load/{count:\\d{0,4}}", load.PostHandler).Methods("POST").
-		HeadersRegexp("Content-Type", "application/(x-www-form-urlencoded|json)")
+	r.HandleFunc("/load/{count:\\d{0,4}}", load.Handler).Methods("POST")
 
 	http.Handle("/", r)
 

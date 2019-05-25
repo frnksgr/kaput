@@ -28,14 +28,24 @@ func init() {
 	help.Add("/load", helpLoad)
 }
 
-// spawn a new Child defined by node
-func spawnChild(url string, node *Node) (int, error) {
-	// create request
-	var buffer bytes.Buffer
-	if err := encodeNode(node, &buffer); err != nil {
+func (n *node) spawn() (int, error) {
+	// create URL
+	url := fmt.Sprintf("%s://%s:%s/load/%d", config.Data.Calling.Protocol,
+		config.Data.Calling.Domain, config.Data.Calling.Port, n.Count)
+	// create body
+	var reqBody bytes.Buffer
+	if err := encodeNode(n, &reqBody); err != nil {
 		return 0, err
 	}
-	resp, err := http.Post(url, "application/json", &buffer)
+	// create request object
+	req, err := http.NewRequest("POST", url, &reqBody)
+	if err != nil {
+		return 0, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Node-Type", "inner")
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return 0, err
 	}
@@ -45,11 +55,11 @@ func spawnChild(url string, node *Node) (int, error) {
 	if resp.StatusCode != http.StatusOK {
 		return 0, fmt.Errorf("Unexpected response, status code: %d", resp.StatusCode)
 	}
-	body, err := ioutil.ReadAll(resp.Body)
+	respBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return 0, err
 	}
-	count, err := strconv.Atoi(strings.TrimSpace(string(body)))
+	count, err := strconv.Atoi(strings.TrimSpace(string(respBody)))
 	if err != nil {
 		return 0, err
 	}
@@ -66,56 +76,58 @@ func nodeCount(r *http.Request) int {
 	return count
 }
 
-// PostHandler handle post requests
-// accepting payloads application/json (inner nodes)
-// application/x-www-form-urlencoded (root node)
-func PostHandler(w http.ResponseWriter, r *http.Request) {
-	nodeCount := nodeCount(r)
-	var node *Node
+// Handler handle post requests
+// requiring payloads application/json
+func Handler(w http.ResponseWriter, r *http.Request) {
+	var n *node
 	var err error
 
+	if r.Header.Get("Content-Type") != "application/json" {
+		w.WriteHeader(http.StatusUnsupportedMediaType)
+		return
+	}
+
 	// construct node
-	switch r.Header.Get("Content-Type") {
-	case "application/json": // inner node
-		node, err = decodeNode(r.Body)
+	switch r.Header.Get("Node-Type") {
+	case "inner": // inner node
+		n, err = decodeNode(r.Body)
 		if err != nil {
 			panic(err)
 		}
-	case "application/x-www-form-urlencoded": //root node
-		load, err := decodeLoad(r)
+	default: //root node
+		load, err := decodeLoad(r.Body)
 		if err != nil {
 			panic(err)
 		}
-		node = &Node{
+		n = &node{
+			Count: nodeCount(r),
 			Index: 1,
+			Level: 0,
 			Load:  load,
 		}
 	}
 
 	// get a node specific logger
-	logger := node.logger()
+	logger := n.logger()
 
 	// execute workload
-	node.Run(logger)
+	n.run(logger)
 
 	// spawn children
-	children := make([]*Node, 0, 2) // actual children to be spawned
+	children := make([]*node, 0, 2) // actual children to be spawned
 	statusCode := http.StatusOK     // default
-	childCount := 0                 // count successfully spawned children
+	count := 1                      // count successfully spawned children
 
 	// figure out children to be spawned
 	for i := 0; i < 2; i++ {
-		child := node.child(i)
-		if child.Index > nodeCount {
+		child := n.child(i)
+		if child.Index > n.Count {
 			break
 		}
 		children = append(children, child)
 	}
 
 	if len(children) > 0 { // some children to spawn
-		url := fmt.Sprintf("%s://%s:%s/load/%d", config.Data.Calling.Protocol,
-			config.Data.Calling.Domain, config.Data.Calling.Port, nodeCount)
-
 		type childResult struct {
 			count int
 			err   error
@@ -123,8 +135,8 @@ func PostHandler(w http.ResponseWriter, r *http.Request) {
 
 		channel := make(chan childResult, len(children))
 		for _, child := range children {
-			go func(child *Node) {
-				count, err := spawnChild(url, child)
+			go func(child *node) {
+				count, err := child.spawn()
 				channel <- childResult{count, err}
 			}(child)
 		}
@@ -134,12 +146,12 @@ func PostHandler(w http.ResponseWriter, r *http.Request) {
 				logger.Println(result.err)
 				statusCode = http.StatusInternalServerError
 			}
-			childCount += result.count
+			count += result.count
 		}
 	}
 
 	// create response
 	w.WriteHeader(statusCode)
-	w.Header().Set("Content-Type", "application/json")
-	fmt.Fprintln(w, childCount)
+	w.Header().Set("Content-Type", "text/plain")
+	fmt.Fprintln(w, count)
 }

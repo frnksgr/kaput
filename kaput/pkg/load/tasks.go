@@ -6,9 +6,9 @@ import (
 )
 
 // TaskExec is interuptable task that executes until interupted
-type TaskExec func(timeout <-chan time.Time, logger *log.Logger)
+type taskExec func(timeout <-chan time.Time, logger *log.Logger)
 
-func noneTask() TaskExec {
+func noneTask() taskExec {
 	return func(timeout <-chan time.Time, logger *log.Logger) {
 		logger.Println("Starting none task")
 		<-timeout
@@ -16,7 +16,7 @@ func noneTask() TaskExec {
 	}
 }
 
-func cpuTask(percent float32) TaskExec {
+func cpuTask(percent float32) taskExec {
 	return func(timeout <-chan time.Time, logger *log.Logger) {
 		logger.Println("Starting cpu task")
 		count := 10 * 1000 * 1000 // should run for a view ms
@@ -40,7 +40,7 @@ func cpuTask(percent float32) TaskExec {
 	}
 }
 
-func ramTask(bytes uint64) TaskExec {
+func ramTask(bytes uint64) taskExec {
 	return func(timeout <-chan time.Time, logger *log.Logger) {
 		logger.Println("Starting ram task")
 		buf := make([]byte, bytes)
