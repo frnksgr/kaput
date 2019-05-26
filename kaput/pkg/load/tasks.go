@@ -2,6 +2,7 @@ package load
 
 import (
 	"log"
+	"syscall"
 	"time"
 )
 
@@ -40,22 +41,36 @@ func cpuTask(percent float32) taskExec {
 	}
 }
 
+// allocate memory using syscall mmap anonymous
+// to workaround go memory management
+func alloc(bytes int) ([]byte, error) {
+	inc := syscall.Getpagesize() / 2
+	mem, err := syscall.Mmap(-1, 0, bytes,
+		syscall.PROT_READ|syscall.PROT_WRITE,
+		syscall.MAP_ANONYMOUS|syscall.MAP_PRIVATE)
+	if err != nil {
+		return nil, err
+	}
+	// cause Pagefaults to increase RSS
+	for i := 0; i < bytes; i += inc {
+		mem[i] = 1
+	}
+	return mem, nil
+}
+
+func free(mem []byte) error {
+	return syscall.Munmap(mem)
+}
+
 func ramTask(bytes uint64) taskExec {
 	return func(timeout <-chan time.Time, logger *log.Logger) {
 		logger.Println("Starting ram task")
-		buf := make([]byte, bytes)
-		for done := false; !done; {
-			select {
-			case <-timeout:
-				done = true
-			default:
-				// touch each page every 5 ms to stay in memory
-				for i := uint64(0); i < bytes; i += 4096 {
-					buf[i] = 1
-				}
-				time.Sleep(5 * time.Millisecond)
-			}
+		mem, err := alloc(int(bytes))
+		if err != nil {
+			logger.Panic(err)
 		}
+		<-timeout
+		free(mem)
 		logger.Println("Ending ram task")
 	}
 }

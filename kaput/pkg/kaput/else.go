@@ -33,9 +33,9 @@ func init() {
 func handleCrash(w http.ResponseWriter, r *http.Request) {
 	switch mux.Vars(r)["it"] {
 	case "connection":
-		log.Panic("Crash Connection")
+		log.Panic("Crashing Connection...")
 	case "server":
-		log.Fatal("Crash Server")
+		log.Fatal("Crashing Server...")
 	}
 }
 
