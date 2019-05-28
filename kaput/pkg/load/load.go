@@ -14,7 +14,7 @@ type load struct {
 	Tasks   []Task `json:"tasks"`   // tasks to be run
 }
 
-// Node metadata of a specific Request
+// Node metadata for a specific Request
 type node struct {
 	Count int   `json:"count"`
 	Index int   `json:"index"`
@@ -27,11 +27,6 @@ func (n *node) logger() *log.Logger {
 	prefix := fmt.Sprintf("ID: %d ", n.Index)
 	return log.New(os.Stdout, prefix, log.Lmicroseconds)
 }
-
-const (
-	childLeft = iota
-	childRight
-)
 
 // create a fully balanced tree
 func (n *node) child(which int) *node {
