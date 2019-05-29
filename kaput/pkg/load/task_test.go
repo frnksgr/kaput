@@ -59,9 +59,9 @@ func ExampleRAMTask() {
 	// Ending ram task
 }
 
-func BenchmarkCPUTask(b *testing.B) {
-	logger := log.New(os.Stdout, "", 0)
+func BenchmarkCPUloop(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		cpuTask(0.9)(time.After(100*time.Millisecond), logger)
+		// this should run for about one millisecond
+		cpuloop(1000)
 	}
 }

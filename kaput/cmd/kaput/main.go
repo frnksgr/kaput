@@ -39,8 +39,8 @@ func init() {
 
 func main() {
 	address := fmt.Sprintf("%s:%s",
-		config.Data.Listening.Host,
-		config.Data.Listening.Port)
+		config.ListeningHost(),
+		config.ListeningPort())
 
 	fmt.Printf("Starting server on %s\n", address)
 	if _, ok := os.LookupEnv("DEBUG"); ok {

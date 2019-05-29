@@ -16,12 +16,15 @@ import (
 
 const helpLoad = `
 /load/[count] create binary tree of requests
+Each request triggering a asynchronous workload execution
+Workloads are specified by json
 Where command is:
-	help        this page
 	count       number of requests created
 
 For example:
-	TODO
+	curl -H "Content-Type: application/json" -d '{"timeout":5000, "tasks": [{"cpu", 0.75]}' \
+	  <base url>/load/100 
+	Create 100 nodes/requests each running a cpu load of 75% for 5000 milliseconds
 `
 
 func init() {
@@ -30,8 +33,8 @@ func init() {
 
 func (n *node) spawn() (int, error) {
 	// create URL
-	url := fmt.Sprintf("%s://%s:%s/load/%d", config.Data.Calling.Protocol,
-		config.Data.Calling.Domain, config.Data.Calling.Port, n.Count)
+	url := fmt.Sprintf("%s://%s:%s/load/%d", config.InternalCallingProtocol(),
+		config.InternalCallingDomain(), config.InternalCallingPort(), n.Count)
 	// create body
 	var reqBody bytes.Buffer
 	if err := encodeNode(n, &reqBody); err != nil {
@@ -87,24 +90,16 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// construct node
-	switch r.Header.Get("Node-Type") {
-	case "inner": // inner node
-		n, err = decodeNode(r.Body)
-		if err != nil {
-			panic(err)
-		}
-	default: //root node
-		load, err := decodeLoad(r.Body)
-		if err != nil {
-			panic(err)
-		}
-		n = &node{
-			Count: nodeCount(r),
-			Index: 1,
-			Level: 0,
-			Load:  load,
-		}
+	n, err = decodeNode(r.Body)
+	if err != nil {
+		panic(err)
+	}
+
+	if r.Header.Get("Node-Type") != "inner" {
+		// root node
+		n.Count = nodeCount(r)
+		n.Index = 1
+		n.Level = 0
 	}
 
 	// get a node specific logger
