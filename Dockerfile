@@ -15,4 +15,4 @@ FROM $BASEIMAGE
 COPY --from=builder /kaput/bin/kaput /
 ENV PORT=8080
 EXPOSE 8080
-CMD [ "/kaput -s" ]
+CMD [ "/kaput" ]
