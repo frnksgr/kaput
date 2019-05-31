@@ -77,18 +77,20 @@ func cpuTask(percent float32) taskExec {
 // allocate memory using syscall mmap anonymous
 // to workaround go memory management
 func alloc(bytes int) ([]byte, error) {
-	inc := syscall.Getpagesize() / 2
 	mem, err := syscall.Mmap(-1, 0, bytes,
 		syscall.PROT_READ|syscall.PROT_WRITE,
 		syscall.MAP_ANONYMOUS|syscall.MAP_PRIVATE)
 	if err != nil {
 		return nil, err
 	}
-	// cause Pagefaults to increase RSS
-	for i := 0; i < bytes; i += inc {
+	return mem, nil
+}
+
+func touch(mem []byte) {
+	inc := syscall.Getpagesize() * 100 / 125
+	for i := 0; i < len(mem); i += inc {
 		mem[i] = 1
 	}
-	return mem, nil
 }
 
 func free(mem []byte) error {
@@ -102,7 +104,15 @@ func ramTask(bytes uint64) taskExec {
 		if err != nil {
 			logger.Panic(err)
 		}
-		<-timeout
+		for done := false; !done; {
+			select {
+			case <-timeout:
+				done = true
+			default:
+				touch(mem)
+				time.Sleep(time.Millisecond)
+			}
+		}
 		free(mem)
 		logger.Println("Ending ram task")
 	}

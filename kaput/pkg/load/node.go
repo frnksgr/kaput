@@ -7,11 +7,14 @@ import (
 	"log"
 	"os"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // Node is associated with a set of tasks beeing executed
 // for a specific time
 type node struct {
+	UUID    uuid.UUID  `json:"uuid,omitempty"`
 	Count   int        `json:"count,omitempty"`
 	Index   int        `json:"index,omitempty"`
 	Level   int        `json:"level,omitempty"`
@@ -28,6 +31,7 @@ func (n *node) logger() *log.Logger {
 // create a fully balanced binary tree
 func (n *node) child(which int) *node {
 	return &node{
+		UUID:    n.UUID,
 		Count:   n.Count,
 		Index:   n.Index + 1<<(uint(n.Level+which)),
 		Level:   n.Level + 1,

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/frnksgr/kaput/kaput/pkg/config"
+	"github.com/google/uuid"
 
 	"github.com/frnksgr/kaput/kaput/pkg/help"
 	"github.com/gorilla/mux"
@@ -97,6 +98,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 
 	if r.Header.Get("Node-Type") != "inner" {
 		// root node
+		n.UUID = uuid.New()
 		n.Count = nodeCount(r)
 		n.Index = 1
 		n.Level = 0
